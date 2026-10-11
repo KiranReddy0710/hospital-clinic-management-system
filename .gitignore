@@ -1,0 +1,17 @@
+.DS_Store
+
+# Build output
+**/target/
+*.class
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea/
+.vscode/
+
+# Logs
+*.log

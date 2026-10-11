@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediCare | Clinic Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">✚</div><div><strong>MediCare</strong><span>CLINIC MANAGEMENT</span></div></div>
+    <div class="nav-caption">WORKSPACE</div>
+    <button class="nav-item active" data-view="overview"><span class="nav-icon">▦</span> Overview</button>
+    <button class="nav-item" data-view="patients"><span class="nav-icon">♙</span> Patients <span class="nav-count" id="patientNavCount">0</span></button>
+    <button class="nav-item" data-view="doctors"><span class="nav-icon">✚</span> Doctors</button>
+    <button class="nav-item" data-view="appointments"><span class="nav-icon">▣</span> Appointments</button>
+    <div class="sidebar-bottom"><div class="help-card"><div class="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your clinic with confidence.</p><a href="#support" id="helpLink">View quick guide ↗</a></div><div class="user-mini"><div class="avatar">AD</div><div><strong>Clinic Admin</strong><span>Administrator</span></div><span class="online-dot"></span></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><button class="mobile-menu" id="mobileMenu" aria-label="Toggle navigation">☰</button><div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumbCurrent">Overview</strong></div><div class="top-actions"><div class="status-pill"><i></i><span id="connectionText">Connecting to API</span></div><div class="top-avatar">AD</div></div></header>
+    <section class="page">
+      <div class="page-heading"><div><div class="eyebrow" id="todayLabel">CLINIC OVERVIEW</div><h1 id="pageTitle">Good evening, Admin <span class="wave">✦</span></h1><p id="pageSubtitle">Here’s what’s happening at your clinic today.</p></div><button class="primary-btn" id="primaryAction"><span>＋</span> New appointment</button></div>
+      <div class="error-banner hidden" id="apiError"><strong>API unavailable.</strong> Start the Spring Boot backend and verify your MySQL settings. <button id="retryBtn">Retry</button></div>
+      <div class="metrics" id="metrics">
+        <article class="metric-card"><div class="metric-top"><span>Total patients</span><span class="metric-icon teal">♙</span></div><div class="metric-number" id="metricPatients">—</div><div class="metric-foot"><span class="metric-note">Registered records</span><span class="trend neutral">Database</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>Medical team</span><span class="metric-icon violet">✚</span></div><div class="metric-number" id="metricDoctors">—</div><div class="metric-foot"><span class="metric-note">Doctor profiles</span><span class="trend neutral">Database</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>Today’s visits</span><span class="metric-icon amber">▣</span></div><div class="metric-number" id="metricToday">—</div><div class="metric-foot"><span class="metric-note">Scheduled for today</span><span class="trend neutral">Today</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>Awaiting visit</span><span class="metric-icon blue">◷</span></div><div class="metric-number" id="metricScheduled">—</div><div class="metric-foot"><span class="metric-note">Scheduled appointments</span><span class="trend neutral">Upcoming</span></div></article>
+      </div>
+      <div class="content-grid">
+        <section class="panel appointments-panel"><div class="panel-header"><div><h2 id="tableTitle">Upcoming appointments</h2><p id="tableDescription">Your clinic’s next scheduled visits</p></div><button class="text-btn" id="viewAllBtn">View all <span>→</span></button></div><div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" placeholder="Search records..." aria-label="Search records"></div><span class="result-count" id="resultCount">Loading records…</span></div><div class="table-wrap"><table><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="loading-cell" colspan="5">Loading clinic data…</td></tr></tbody></table></div><div class="table-footer"><span id="tableFooterText">Connected data appears here</span><div class="table-paging"><button disabled>‹</button><button class="page-current">1</button><button disabled>›</button></div></div></section>
+        <aside class="right-column"><section class="panel quick-panel"><div class="panel-header"><div><h2>Quick actions</h2><p>Common tasks, one click away</p></div></div><button class="quick-action" data-action="patient"><span class="quick-symbol teal-bg">♙</span><span><strong>Register patient</strong><small>Add a new patient record</small></span><b>→</b></button><button class="quick-action" data-action="doctor"><span class="quick-symbol purple-bg">✚</span><span><strong>Add doctor</strong><small>Update your medical team</small></span><b>→</b></button><button class="quick-action" data-action="appointment"><span class="quick-symbol orange-bg">▣</span><span><strong>Book appointment</strong><small>Schedule a consultation</small></span><b>→</b></button></section><section class="panel status-panel"><div class="panel-header"><div><h2>Appointment status</h2><p>Current records at a glance</p></div></div><div class="status-row"><span class="status-dot scheduled"></span><span>Scheduled</span><strong id="statusScheduled">—</strong></div><div class="status-track"><span id="barScheduled" class="track-scheduled"></span></div><div class="status-row"><span class="status-dot completed"></span><span>Completed</span><strong id="statusCompleted">—</strong></div><div class="status-track"><span id="barCompleted" class="track-completed"></span></div><div class="status-row"><span class="status-dot cancelled"></span><span>Cancelled</span><strong id="statusCancelled">—</strong></div><div class="status-track"><span id="barCancelled" class="track-cancelled"></span></div></section><section class="tip-card"><div class="tip-star">✦</div><div><strong>Small steps, better care.</strong><p>Keep patient records accurate and appointments up to date.</p></div></section></aside>
+      </div>
+      <footer class="footer"><span>© 2026 MediCare Clinic Management</span><span><i class="online-dot"></i> Local workspace <span class="footer-sep">·</span> Built for better care</span></footer>
+    </section>
+  </main>
+</div>
+<div class="modal-backdrop hidden" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-heading"><div><span class="eyebrow">RECORD MANAGEMENT</span><h2 id="modalTitle">New record</h2><p id="modalSubtitle">Complete the details below.</p></div><button class="icon-button" id="closeModal" aria-label="Close">×</button></div><form id="recordForm"><div id="formFields" class="form-grid"></div><div class="form-error hidden" id="formError"></div><div class="modal-actions"><button type="button" class="secondary-btn" id="cancelModal">Cancel</button><button type="submit" class="primary-btn" id="saveBtn">Save record</button></div></form></section></div>
+<div class="toast hidden" id="toast"></div>
+<script src="app.js"></script>
+</body></html>
