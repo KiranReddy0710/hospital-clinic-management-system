@@ -1,4 +1,6 @@
-const API = 'http://localhost:8080/api';
+const API = window.location.hostname === 'localhost' && window.location.port && window.location.port !== '8080'
+  ? 'http://localhost:8080/api'
+  : `${window.location.origin}/api`;
 const $ = (id) => document.getElementById(id);
 const state = { view: 'overview', patients: [], doctors: [], appointments: [], query: '', editing: null };
 const fields = {

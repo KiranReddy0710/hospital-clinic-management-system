@@ -49,6 +49,17 @@ python3 -m http.server 5500
 ```
 Then open `http://localhost:5500`.
 
+## Deploy on Railway
+This repository includes a Dockerfile and Railway health check configuration. The Spring Boot app serves the frontend and API from one public URL.
+
+1. Push this repository to GitHub, then create a Railway project from that repository.
+2. Add a Railway MySQL service to the project.
+3. In the application service, add shared variable references for `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE` from the MySQL service. The backend reads these variables to connect to the database.
+4. Deploy the app service. Railway uses the included Dockerfile and checks `/api/health`.
+5. Open the generated public domain. The frontend uses the same domain for API requests.
+
+Do not expose real patient information through this demo. It has no authentication or authorization, and its CRUD API is publicly accessible after deployment. Use synthetic data only until proper access controls and privacy safeguards are implemented.
+
 ## Features
 - Dashboard overview and appointment status counts
 - Patient CRUD
