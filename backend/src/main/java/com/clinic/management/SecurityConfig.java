@@ -15,7 +15,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.config.Customizer;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,10 +42,13 @@ class SecurityConfig {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // Sign-in and sign-out do not depend on a CSRF cookie being accepted by the browser.
-                .ignoringRequestMatchers(
-                    new AntPathRequestMatcher("/api/auth/login", "POST"),
-                    new AntPathRequestMatcher("/api/auth/logout", "POST")))
+                // Keep browser authentication usable across Railway proxies and context paths.
+                // Other API mutations continue to require the CSRF cookie/header pair.
+                .ignoringRequestMatchers(request -> {
+                    String path = request.getServletPath();
+                    return "POST".equals(request.getMethod())
+                        && ("/api/auth/login".equals(path) || "/api/auth/logout".equals(path));
+                }))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/register/**", "/api/auth/invites/**").denyAll()

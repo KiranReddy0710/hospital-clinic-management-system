@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -14,10 +15,13 @@ import org.springframework.security.web.authentication.session.ChangeSessionIdAu
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/auth")
 class AuthController {
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private final UserAccountRepository users;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository contexts = new HttpSessionSecurityContextRepository();
@@ -35,8 +39,16 @@ class AuthController {
     @PostMapping("/login") SafeAccount login(@RequestBody LoginRequest input, HttpServletRequest request, HttpServletResponse response) {
         if(input.email()==null || input.password()==null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter your Gmail and password.");
-        Authentication auth=authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(normalize(input.email()),input.password()));
+        final Authentication auth;
+        try {
+            auth=authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(normalize(input.email()),input.password()));
+        } catch (AuthenticationException ex) {
+            // A bad username/password is a failed sign-in (401), not an access-control denial (403).
+            // Log only the exception type; never log the submitted email or password.
+            log.info("Clinic sign-in rejected: {}", ex.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Email or password is incorrect.");
+        }
         sessionStrategy.onAuthentication(auth,request,response);
         SecurityContext context=SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
