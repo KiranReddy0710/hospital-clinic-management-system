@@ -5,7 +5,7 @@ A professional starter full-stack project based on the uploaded abstract:
 - Backend: Java 17+, Spring Boot 3.3, Spring Web, Spring Data JPA, Bean Validation
 - Database: MySQL
 - REST API with patient, doctor, and appointment CRUD
-- Demo role-based UI (Admin / Doctor / Patient) and dashboard metrics
+- Gmail/password accounts with admin, doctor, and patient roles
 
 > **Important:** This is a runnable academic starter, not a clinically validated or production-hardened healthcare system. Before real patient data is used, add audited authentication/authorization, HTTPS, secrets management, backups, privacy controls, logging, security review, and jurisdiction-specific compliance. Do not use real patient information in the demo.
 
@@ -55,10 +55,11 @@ This repository includes a Dockerfile and Railway health check configuration. Th
 1. Push this repository to GitHub, then create a Railway project from that repository.
 2. Add a Railway MySQL service to the project.
 3. In the application service, add shared variable references for `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE` from the MySQL service. The backend reads these variables to connect to the database.
-4. Deploy the app service. Railway uses the included Dockerfile and checks `/api/health`.
-5. Open the generated public domain. The frontend uses the same domain for API requests.
+4. Generate a strong one-time secret (for example, `openssl rand -hex 32`) and set it as `APP_AUTH_ADMIN_BOOTSTRAP_TOKEN` in the app service variables. The session cookie is secure by default on Railway; set `SESSION_COOKIE_SECURE=false` only for local HTTP development.
+5. Deploy the app service. Railway uses the included Dockerfile and checks `/api/health`.
+6. Open the generated public domain, choose **Admin setup**, and create the first administrator. Remove `APP_AUTH_ADMIN_BOOTSTRAP_TOKEN` from Railway after setup; it stops working once an admin account exists.
 
-Do not expose real patient information through this demo. It has no authentication or authorization, and its CRUD API is publicly accessible after deployment. Use synthetic data only until proper access controls and privacy safeguards are implemented.
+The first admin can create one-time, seven-day invite codes for doctors and additional admins. Patients can register themselves. Passwords are hashed, sessions use CSRF protection, and the API enforces roles. Email addresses are not verified; this remains an academic demo and is not clinically validated or compliant for real patient data. Use synthetic data only.
 
 ## Features
 - Dashboard overview and appointment status counts
@@ -66,11 +67,16 @@ Do not expose real patient information through this demo. It has no authenticati
 - Doctor CRUD
 - Appointment create/list/status update/delete
 - Search across patient, doctor and appointment tables
-- Demo role selector for UI preview (not security; server-side authentication is not included in this starter)
+- Patient self-registration with Gmail address and password
+- Invite-only doctor/admin registration and first-admin bootstrap
+- Server-side role checks, password hashing, CSRF protection, and session authentication
 - Responsive navigation and UI
 
 ## REST endpoints
 - `GET /api/health`
+- `GET /api/auth/csrf`, `GET /api/auth/me`
+- `POST /api/auth/register/patient`, `/api/auth/register/invited`, `/api/auth/register/bootstrap`
+- `POST /api/auth/login`, `/api/auth/logout`, `/api/auth/invites` (admin only)
 - `GET /api/dashboard`
 - `GET|POST /api/patients`
 - `GET|PUT|DELETE /api/patients/{id}`
@@ -78,13 +84,6 @@ Do not expose real patient information through this demo. It has no authenticati
 - `GET|PUT|DELETE /api/doctors/{id}`
 - `GET|POST /api/appointments`
 - `GET|PUT|DELETE /api/appointments/{id}`
-
-## Sample request
-```bash
-curl -X POST http://localhost:8080/api/patients \
-  -H 'Content-Type: application/json' \
-  -d '{"fullName":"Aarav Sharma","age":28,"gender":"Male","phone":"9876543210","email":"aarav@example.com","bloodGroup":"O+","address":"Hyderabad"}'
-```
 
 ## Troubleshooting
 - **Access denied:** confirm `DB_USERNAME` / `DB_PASSWORD`.
@@ -94,8 +93,6 @@ curl -X POST http://localhost:8080/api/patients \
 - **CORS:** backend permits local development origins on ports 5500, 5501, and 3000.
 
 ## Production hardening checklist
-1. Replace demo role selector with Spring Security authentication and server-side role checks.
-2. Add password hashing, session/token security, CSRF strategy, rate limiting, and audit trails.
-3. Add pagination, DTO mapping, database migrations, automated tests, monitoring, and backups.
-4. Add real SMTP integration only after securely configuring provider credentials.
-5. Have security and clinical stakeholders review workflows before deployment.
+1. Add email verification and rate limiting before wider public use.
+2. Add pagination, DTO mapping, database migrations, monitoring, and backups.
+3. Have security and clinical stakeholders review workflows before deployment.

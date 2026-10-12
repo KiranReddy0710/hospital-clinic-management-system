@@ -2,7 +2,7 @@ const API = window.location.hostname === 'localhost' && window.location.port && 
   ? 'http://localhost:8080/api'
   : `${window.location.origin}/api`;
 const $ = (id) => document.getElementById(id);
-const state = { view: 'overview', patients: [], doctors: [], appointments: [], query: '', editing: null };
+const state = { view: 'overview', patients: [], doctors: [], appointments: [], query: '', editing: null, user: null, csrf: '' };
 const fields = {
   patient: [
     {name:'fullName',label:'Full name',required:true,placeholder:'e.g. Aarav Sharma'},
@@ -45,7 +45,8 @@ function showToast(message, error=false) {
   clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>toast.classList.add('hidden'),3500);
 }
 async function request(path, options={}) {
-  const response = await fetch(`${API}${path}`, {headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  const method=(options.method||'GET').toUpperCase();
+  const response = await fetch(`${API}${path}`, {credentials:'include',...options,headers:{'Content-Type':'application/json',...(method!=='GET'&&state.csrf?{'X-XSRF-TOKEN':state.csrf}:{}),...(options.headers||{})}});
   if(!response.ok) {
     let message = `Request failed (${response.status})`;
     try { const data=await response.json(); message=data.message || data.detail || message; } catch {}
@@ -56,9 +57,15 @@ async function request(path, options={}) {
 }
 async function refreshData() {
   try {
-    const [dashboard,patients,doctors,appointments] = await Promise.all([
-      request('/dashboard'),request('/patients'),request('/doctors'),request('/appointments')
-    ]);
+    let dashboard,patients,doctors,appointments;
+    if(state.user.role==='PATIENT') {
+      const [patient,doctorList,appointmentList]=await Promise.all([request('/patients/me'),request('/doctors'),request('/appointments/mine')]);
+      patients=[patient]; doctors=doctorList; appointments=appointmentList;
+      const today=new Date().toISOString().slice(0,10);
+      dashboard={patients:1,doctors:doctors.length,appointmentsToday:appointments.filter(a=>String(a.appointmentAt).startsWith(today)).length,scheduledAppointments:appointments.filter(a=>a.status==='SCHEDULED').length,completedAppointments:appointments.filter(a=>a.status==='COMPLETED').length,cancelledAppointments:appointments.filter(a=>a.status==='CANCELLED').length};
+    } else {
+      [dashboard,patients,doctors,appointments] = await Promise.all([request('/dashboard'),request('/patients'),request('/doctors'),request('/appointments')]);
+    }
     Object.assign(state,{patients,doctors,appointments});
     $('apiError').classList.add('hidden'); $('connectionText').textContent='API connected';
     $('connectionText').parentElement.classList.add('connected');
@@ -83,6 +90,7 @@ async function refreshData() {
   }
 }
 function setView(view) {
+  if(state.user?.role==='PATIENT'&&view!=='appointments') view='appointments';
   state.view=view; state.query=''; $('searchInput').value='';
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   $('breadcrumbCurrent').textContent=labels[view];
@@ -110,14 +118,14 @@ function renderTable() {
     rows=state.patients.filter(p=>[p.fullName,p.phone,p.email,p.bloodGroup].join(' ').toLowerCase().includes(q)).map(p=>[
       `<div class="person-cell"><div class="person-avatar">${initials(p.fullName)}</div><div><strong>${escapeHtml(p.fullName)}</strong><small>Patient ID · ${p.id}</small></div></div>`,
       `${escapeHtml(p.age)} / ${escapeHtml(p.gender)}`,escapeHtml(p.phone),escapeHtml(p.bloodGroup||'—'),
-      `<button class="row-action" title="Edit patient" data-edit="patient" data-id="${p.id}">✎</button> <button class="row-action" title="Delete patient" data-delete="patient" data-id="${p.id}">×</button>`
+      state.user.role==='ADMIN'?`<button class="row-action" title="Edit patient" data-edit="patient" data-id="${p.id}">✎</button> <button class="row-action" title="Delete patient" data-delete="patient" data-id="${p.id}">×</button>`:'—'
     ]);
   } else if(view==='doctors') {
     headers=['Doctor','Specialization','Phone','Availability','Actions'];
     rows=state.doctors.filter(d=>[d.fullName,d.specialization,d.phone,d.email].join(' ').toLowerCase().includes(q)).map(d=>[
       `<div class="person-cell"><div class="person-avatar">${initials(d.fullName)}</div><div><strong>${escapeHtml(d.fullName)}</strong><small>Doctor ID · ${d.id}</small></div></div>`,
       escapeHtml(d.specialization),escapeHtml(d.phone),`<span class="status-badge ${d.available?'badge-available':'badge-unavailable'}">${d.available?'Available':'Unavailable'}</span>`,
-      `<button class="row-action" title="Edit doctor" data-edit="doctor" data-id="${d.id}">✎</button> <button class="row-action" title="Delete doctor" data-delete="doctor" data-id="${d.id}">×</button>`
+      state.user.role==='ADMIN'?`<button class="row-action" title="Edit doctor" data-edit="doctor" data-id="${d.id}">✎</button> <button class="row-action" title="Delete doctor" data-delete="doctor" data-id="${d.id}">×</button>`:'—'
     ]);
   } else {
     headers=['Patient / Doctor','Reason','Date & time','Status','Actions'];
@@ -129,7 +137,7 @@ function renderTable() {
       return [
         `<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,
         escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),
-        `<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button> <button class="row-action" title="Delete appointment" data-delete="appointment" data-id="${a.id}">×</button>`
+        `${state.user.role!=='PATIENT'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button>`:''} ${state.user.role==='ADMIN'?`<button class="row-action" title="Delete appointment" data-delete="appointment" data-id="${a.id}">×</button>`:''}`
       ];
     });
   }
@@ -137,7 +145,7 @@ function renderTable() {
     headers=['Patient / Doctor','Reason','Date & time','Status',''];
     rows=state.appointments.filter(a=>a.status==='SCHEDULED').sort((a,b)=>new Date(a.appointmentAt)-new Date(b.appointmentAt)).slice(0,6).map(a=>{
       const p=state.patients.find(x=>x.id===a.patientId),d=state.doctors.find(x=>x.id===a.doctorId);
-      return [`<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button>`];
+      return [`<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),state.user.role==='ADMIN'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button>`:''];
     });
   }
   $('tableHead').innerHTML=`<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
@@ -146,6 +154,7 @@ function renderTable() {
   $('tableFooterText').textContent=`Showing ${rows.length} ${rows.length===1?'record':'records'}`;
 }
 function openModal(kind,id=null) {
+  if(state.user?.role==='DOCTOR'||(state.user?.role==='PATIENT'&&(kind!=='appointment'||id)))return;
   const type=kind==='patient'?'patient':kind==='doctor'?'doctor':'appointment';
   const current=id?state[{patient:'patients',doctor:'doctors',appointment:'appointments'}[type]].find(x=>x.id===Number(id)):null;
   state.editing={type,id:current?.id||null};
@@ -211,6 +220,63 @@ document.addEventListener('click',e=>{
   if(quick)openModal(quick.dataset.action);
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-$('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Start MySQL, run schema.sql, start Spring Boot, then refresh this page.');});
+$('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Use synthetic data only. Your role controls which clinic records you can access.');});
+
+const authModes={
+  patient:{title:'Create a patient account',intro:'Register with your Gmail address to manage your appointments.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['age','Age','number'],['gender','Gender','select'],['phone','Phone number','tel']]},
+  doctor:{title:'Doctor registration',intro:'Enter your one time invite code from the clinic administrator.',fields:[['inviteCode','Doctor invite code','text'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
+  admin:{title:'Set up the first admin account',intro:'The one time bootstrap token must be configured in Railway by the project owner.',fields:[['bootstrapToken','Admin bootstrap token','password'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password']]},
+  login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['role','Sign in as','select'],['email','Gmail address','email'],['password','Password','password']]}
+};
+function renderAuth(mode='patient') {
+  const config=authModes[mode]; $('authTitle').textContent=config.title; $('authIntro').textContent=config.intro;
+  document.querySelectorAll('.auth-tab').forEach(button=>button.classList.toggle('active',button.dataset.authMode===mode));
+  $('authError').classList.add('hidden');
+  $('authForm').innerHTML=config.fields.map(([name,label,type])=>{
+    let input=type==='select'?`<select id="auth-${name}" name="${name}" required>${(name==='gender'?['Male','Female','Other']:['PATIENT','DOCTOR','ADMIN']).map(value=>`<option value="${value}">${value[0]+value.slice(1).toLowerCase()}</option>`).join('')}</select>`:`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'minlength="10" maxlength="72" autocomplete="new-password"':''} ${type==='number'?'min="0" max="120"':''} ${type==='password'&&name==='bootstrapToken'?'autocomplete="off"':''} required>`;
+    return `<div class="field"><label for="auth-${name}">${label}</label>${input}</div>`;
+  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':mode==='doctor'?'Register doctor':'Create first admin account'}</button>`;
+  $('authForm').dataset.mode=mode;
+}
+document.querySelectorAll('.auth-tab').forEach(button=>button.addEventListener('click',()=>renderAuth(button.dataset.authMode)));
+function showAccount(account) {
+  state.user=account; $('authShell').classList.add('hidden'); document.querySelector('.app-shell').classList.remove('hidden');
+  const name=account.fullName||account.email, roleName=account.role[0]+account.role.slice(1).toLowerCase();
+  $('userName').textContent=name; $('userRole').textContent=roleName; $('userAvatar').textContent=initials(name); $('userAvatar').classList.add('avatar'); $('userRole').parentElement.previousElementSibling.textContent=initials(name);
+  document.querySelector('.top-avatar').textContent=initials(name); document.querySelector('.top-avatar').setAttribute('aria-label',roleName);
+  document.querySelector('.app-shell').classList.remove('patient-mode','doctor-mode','admin-mode');
+  document.querySelector('.app-shell').classList.add(`${account.role.toLowerCase()}-mode`);
+  $('inviteBtn').classList.toggle('hidden',account.role!=='ADMIN');
+  $('primaryAction').classList.toggle('hidden',account.role==='DOCTOR');
+  if(account.role==='PATIENT') { setView('appointments'); $('pageTitle').textContent='My appointments'; $('pageSubtitle').textContent='View your visits or request a new appointment.'; $('tableTitle').textContent='My appointments'; $('tableDescription').textContent='Your clinic bookings'; }
+  else if(account.role==='DOCTOR') { $('pageTitle').textContent='Doctor workspace'; $('pageSubtitle').textContent='Review patient records and manage appointment status.'; }
+  refreshData();
+}
+async function bootAuth() {
+  document.querySelector('.app-shell').classList.add('hidden'); $('authShell').classList.remove('hidden'); renderAuth('patient');
+  try { state.csrf=(await request('/auth/csrf')).token; const account=await request('/auth/me'); showAccount(account); }
+  catch { /* No session: keep the registration and sign in page visible. */ }
+}
+$('authForm').addEventListener('submit',async event=>{
+  event.preventDefault(); const mode=event.currentTarget.dataset.mode, data=Object.fromEntries(new FormData(event.currentTarget));
+  const error=$('authError'); error.classList.add('hidden');
+  try {
+    state.csrf=(await request('/auth/csrf')).token;
+    let account;
+    if(mode==='login') {
+      account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
+      if(account.role!==data.role) { await request('/auth/logout',{method:'POST'}); throw new Error(`This account is ${account.role.toLowerCase()}. Choose that account type and sign in again.`); }
+    } else if(mode==='patient') account=await request('/auth/register/patient',{method:'POST',body:JSON.stringify({...data,age:Number(data.age)})});
+    else if(mode==='admin') account=await request('/auth/register/bootstrap',{method:'POST',body:JSON.stringify(data)});
+    else account=await request('/auth/register/invited',{method:'POST',body:JSON.stringify(data)});
+    showAccount(account);
+  } catch(err) { error.textContent=err.message||'Unable to complete account access.'; error.classList.remove('hidden'); }
+});
+$('signOutBtn').addEventListener('click',async()=>{try{await request('/auth/logout',{method:'POST'});}finally{state.user=null;state.csrf=(await request('/auth/csrf')).token;document.querySelector('.app-shell').classList.add('hidden');renderAuth('login');$('authShell').classList.remove('hidden');}});
+$('inviteBtn').addEventListener('click',async()=>{
+  const role=window.prompt('Create an invite for ADMIN or DOCTOR. Enter the role:','DOCTOR'); if(!role)return;
+  try {const invite=await request('/auth/invites',{method:'POST',body:JSON.stringify({role:role.trim().toUpperCase()})});window.alert(`${invite.role} invite code (valid for 7 days):\n\n${invite.inviteCode}\n\nCopy and share it only with the intended person. It can be used once.`);}
+  catch(err){showToast(err.message||'Could not create invite.',true);}
+});
 const now=new Date(); $('todayLabel').textContent=now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}).toUpperCase();
-refreshData(); setInterval(refreshData,30000);
+bootAuth(); setInterval(()=>{if(state.user)refreshData();},30000);
