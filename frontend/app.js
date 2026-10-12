@@ -235,7 +235,7 @@ function renderAuth(mode='patient') {
   $('authForm').innerHTML=config.fields.map(([name,label,type])=>{
     let input=type==='select'?`<select id="auth-${name}" name="${name}" required>${(name==='gender'?['Male','Female','Other']:['PATIENT','DOCTOR','ADMIN']).map(value=>`<option value="${value}">${value[0]+value.slice(1).toLowerCase()}</option>`).join('')}</select>`:`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'minlength="10" maxlength="72" autocomplete="new-password"':''} ${type==='number'?'min="0" max="120"':''} ${type==='password'&&name==='bootstrapToken'?'autocomplete="off"':''} required>`;
     return `<div class="field"><label for="auth-${name}">${label}</label>${input}</div>`;
-  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':mode==='doctor'?'Register doctor':'Create first admin account'}</button>`;
+  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':mode==='doctor'?'Create doctor account':'Create admin account'}</button>`;
   $('authForm').dataset.mode=mode;
 }
 document.querySelectorAll('.auth-tab').forEach(button=>button.addEventListener('click',()=>renderAuth(button.dataset.authMode)));
