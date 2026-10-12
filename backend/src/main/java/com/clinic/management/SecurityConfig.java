@@ -12,11 +12,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.config.Customizer;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
@@ -39,14 +39,21 @@ class SecurityConfig {
         return new ProviderManager(provider);
     }
 
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Bean @Order(1) SecurityFilterChain loginSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/api/auth/login")
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .formLogin(form -> form.disable())
+            .httpBasic(basic -> basic.disable())
+            .logout(logout -> logout.disable());
+        return http.build();
+    }
+
+    @Bean @Order(2) SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // Login/logout are public auth endpoints. All clinic data mutations remain CSRF protected.
-                .ignoringRequestMatchers(
-                    new AntPathRequestMatcher("/api/auth/login", "POST"),
-                    new AntPathRequestMatcher("/api/auth/logout", "POST")))
+            )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/register/**", "/api/auth/invites/**").denyAll()
