@@ -46,7 +46,8 @@ function showToast(message, error=false) {
 }
 async function request(path, options={}) {
   const method=(options.method||'GET').toUpperCase();
-  const response = await fetch(`${API}${path}`, {credentials:'include',...options,headers:{'Content-Type':'application/json',...(method!=='GET'&&state.csrf?{'X-XSRF-TOKEN':state.csrf}:{}),...(options.headers||{})}});
+  const {skipCsrf=false,...fetchOptions}=options;
+  const response = await fetch(`${API}${path}`, {credentials:'include',...fetchOptions,headers:{'Content-Type':'application/json',...(method!=='GET'&&!skipCsrf&&state.csrf?{'X-XSRF-TOKEN':state.csrf}:{}),...(options.headers||{})}});
   if(!response.ok) {
     let message = `Request failed (${response.status})`;
     try { const data=await response.json(); message=data.message || data.detail || message; } catch {}
@@ -255,7 +256,7 @@ $('authForm').addEventListener('submit',async event=>{
   const error=$('authError'); error.classList.add('hidden');
   try {
     state.csrf=(await request('/auth/csrf')).token;
-    const account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
+    const account=await request('/auth/login',{method:'POST',skipCsrf:true,body:JSON.stringify({email:data.email,password:data.password})});
     showAccount(account);
   } catch(err) { error.textContent=err.message||'Unable to complete account access.'; error.classList.remove('hidden'); }
 });

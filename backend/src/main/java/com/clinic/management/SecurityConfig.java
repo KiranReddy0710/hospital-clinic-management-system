@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -42,13 +43,10 @@ class SecurityConfig {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // Keep browser authentication usable across Railway proxies and context paths.
-                // Other API mutations continue to require the CSRF cookie/header pair.
-                .ignoringRequestMatchers(request -> {
-                    String path = request.getRequestURI();
-                    return "POST".equals(request.getMethod())
-                        && (path.endsWith("/api/auth/login") || path.endsWith("/api/auth/logout"));
-                }))
+                // Login/logout are public auth endpoints. All clinic data mutations remain CSRF protected.
+                .ignoringRequestMatchers(
+                    new AntPathRequestMatcher("/api/auth/login", "POST"),
+                    new AntPathRequestMatcher("/api/auth/logout", "POST")))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/register/**", "/api/auth/invites/**").denyAll()
