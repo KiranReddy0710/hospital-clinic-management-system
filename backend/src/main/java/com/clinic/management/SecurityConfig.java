@@ -45,9 +45,9 @@ class SecurityConfig {
                 // Keep browser authentication usable across Railway proxies and context paths.
                 // Other API mutations continue to require the CSRF cookie/header pair.
                 .ignoringRequestMatchers(request -> {
-                    String path = request.getServletPath();
+                    String path = request.getRequestURI();
                     return "POST".equals(request.getMethod())
-                        && ("/api/auth/login".equals(path) || "/api/auth/logout".equals(path));
+                        && (path.endsWith("/api/auth/login") || path.endsWith("/api/auth/logout"));
                 }))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
