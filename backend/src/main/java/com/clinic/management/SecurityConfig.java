@@ -37,7 +37,10 @@ class SecurityConfig {
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                // First-admin setup is protected by a high-entropy one-time secret. Exempt this
+                // bootstrap endpoint so browser cookie policies cannot block initial setup.
+                .ignoringRequestMatchers("/api/auth/register/bootstrap"))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout",
                     "/api/auth/register/patient", "/api/auth/register/invited", "/api/auth/register/bootstrap").permitAll()
