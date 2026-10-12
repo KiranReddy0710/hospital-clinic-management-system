@@ -226,7 +226,7 @@ const authModes={
   patient:{title:'Create a patient account',intro:'Register with your Gmail address to manage your appointments.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['age','Age','number'],['gender','Gender','select'],['phone','Phone number','tel']]},
   doctor:{title:'Doctor registration',intro:'Enter your one time invite code from the clinic administrator.',fields:[['inviteCode','Doctor invite code','text'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
   admin:{title:'Set up the first admin account',intro:'The one time bootstrap token must be configured in Railway by the project owner.',fields:[['bootstrapToken','Admin bootstrap token','password'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password']]},
-  login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['role','Sign in as','select'],['email','Gmail address','email'],['password','Password','password']]}
+  login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['email','Gmail address','email'],['password','Password','password']]}
 };
 function renderAuth(mode='patient') {
   const config=authModes[mode]; $('authTitle').textContent=config.title; $('authIntro').textContent=config.intro;
@@ -263,10 +263,8 @@ $('authForm').addEventListener('submit',async event=>{
   try {
     state.csrf=(await request('/auth/csrf')).token;
     let account;
-    if(mode==='login') {
-      account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
-      if(account.role!==data.role) { await request('/auth/logout',{method:'POST'}); throw new Error(`This account is ${account.role.toLowerCase()}. Choose that account type and sign in again.`); }
-    } else if(mode==='patient') account=await request('/auth/register/patient',{method:'POST',body:JSON.stringify({...data,age:Number(data.age)})});
+    if(mode==='login') account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
+    else if(mode==='patient') account=await request('/auth/register/patient',{method:'POST',body:JSON.stringify({...data,age:Number(data.age)})});
     else if(mode==='admin') account=await request('/auth/register/bootstrap',{method:'POST',body:JSON.stringify(data)});
     else account=await request('/auth/register/invited',{method:'POST',body:JSON.stringify(data)});
     showAccount(account);
