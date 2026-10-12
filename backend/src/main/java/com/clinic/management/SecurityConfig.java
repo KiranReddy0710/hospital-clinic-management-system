@@ -4,7 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,6 +15,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.config.Customizer;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +32,11 @@ class SecurityConfig {
             .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("Account not found"));
     }
 
-    @Bean AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
+    @Bean AuthenticationManager authenticationManager(UserDetailsService users, PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(users);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
     }
 
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,7 +44,9 @@ class SecurityConfig {
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 // Sign-in and sign-out do not depend on a CSRF cookie being accepted by the browser.
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout"))
+                .ignoringRequestMatchers(
+                    new AntPathRequestMatcher("/api/auth/login", "POST"),
+                    new AntPathRequestMatcher("/api/auth/logout", "POST")))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/register/**", "/api/auth/invites/**").denyAll()
