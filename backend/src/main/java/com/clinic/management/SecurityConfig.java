@@ -41,22 +41,22 @@ class SecurityConfig {
                 // Anonymous sign-in and registration routes validate credentials, Gmail details,
                 // or an invite. Exempt them so Safari cookie policies cannot block account access.
                 .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/register/patient", "/api/auth/register/open",
-                    "/api/auth/register/invited", "/api/auth/register/bootstrap"))
+                    "/api/auth/register/invited"))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout",
-                    "/api/auth/register/patient", "/api/auth/register/open", "/api/auth/register/invited", "/api/auth/register/bootstrap").permitAll()
+                    "/api/auth/register/patient", "/api/auth/register/open", "/api/auth/register/invited").permitAll()
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/doctors", "/api/doctors/*").hasAnyRole("ADMIN", "DOCTOR", "PATIENT")
-                .requestMatchers("/api/doctors/**").hasRole("ADMIN")
+                .requestMatchers("/api/doctors/**").hasAnyRole("ADMIN", "DOCTOR")
                 .requestMatchers(HttpMethod.GET, "/api/patients/me").hasRole("PATIENT")
                 .requestMatchers(HttpMethod.GET, "/api/appointments/mine").hasAnyRole("PATIENT", "DOCTOR")
                 .requestMatchers(HttpMethod.GET, "/api/patients/**", "/api/appointments/**", "/api/dashboard")
                     .hasAnyRole("ADMIN", "DOCTOR")
-                .requestMatchers(HttpMethod.POST, "/api/appointments").hasAnyRole("ADMIN", "PATIENT")
+                .requestMatchers(HttpMethod.POST, "/api/appointments").hasAnyRole("ADMIN", "DOCTOR", "PATIENT")
                 .requestMatchers(HttpMethod.PUT, "/api/appointments/**").hasAnyRole("ADMIN", "DOCTOR")
-                .requestMatchers(HttpMethod.DELETE, "/api/appointments/**").hasRole("ADMIN")
-                .requestMatchers("/api/auth/invites/**").hasRole("ADMIN")
-                .requestMatchers("/api/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/appointments/**").hasAnyRole("ADMIN", "DOCTOR")
+                .requestMatchers("/api/auth/invites/**").hasAnyRole("ADMIN", "DOCTOR")
+                .requestMatchers("/api/**").hasAnyRole("ADMIN", "DOCTOR")
                 .anyRequest().permitAll())
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())

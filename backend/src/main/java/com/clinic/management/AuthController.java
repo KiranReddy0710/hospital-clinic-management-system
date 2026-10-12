@@ -3,7 +3,6 @@ package com.clinic.management;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.Email;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -38,16 +37,14 @@ class AuthController {
     private final DoctorRepository doctors;
     private final PasswordEncoder passwords;
     private final AuthenticationManager authenticationManager;
-    private final String bootstrapToken;
     private final SecurityContextRepository contexts = new HttpSessionSecurityContextRepository();
     private final ChangeSessionIdAuthenticationStrategy sessionStrategy = new ChangeSessionIdAuthenticationStrategy();
 
     AuthController(UserAccountRepository users, RegistrationInviteRepository invites,
                    PatientRepository patients, DoctorRepository doctors, PasswordEncoder passwords,
-                   AuthenticationManager authenticationManager,
-                   @Value("${app.auth.admin-bootstrap-token:}") String bootstrapToken) {
+                   AuthenticationManager authenticationManager) {
         this.users=users; this.invites=invites; this.patients=patients; this.doctors=doctors;
-        this.passwords=passwords; this.authenticationManager=authenticationManager; this.bootstrapToken=bootstrapToken;
+        this.passwords=passwords; this.authenticationManager=authenticationManager;
     }
 
     @GetMapping("/me") SafeAccount me(Authentication authentication) {
@@ -71,7 +68,9 @@ class AuthController {
     SafeAccount registerOpen(@RequestBody Map<String,String> input, HttpServletRequest request, HttpServletResponse response) {
         AccountRole role;
         try { role=AccountRole.valueOf(input.getOrDefault("role", "PATIENT").trim().toUpperCase()); }
-        catch (IllegalArgumentException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Patient, Doctor, or Admin."); }
+        catch (IllegalArgumentException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Patient or Doctor."); }
+        if(role!=AccountRole.PATIENT && role!=AccountRole.DOCTOR)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Patient or Doctor.");
         validateCommon(input.get("email"),input.get("password"),input.get("fullName")); ensureEmailAvailable(input.get("email"));
         Long profileId=null;
         if(role==AccountRole.PATIENT) {
@@ -93,22 +92,11 @@ class AuthController {
         users.save(user); authenticate(user,request,response); return SafeAccount.from(user);
     }
 
-    @PostMapping("/register/bootstrap") @ResponseStatus(HttpStatus.CREATED) @Transactional
-    SafeAccount registerFirstAdmin(@RequestBody Map<String,String> input, HttpServletRequest request, HttpServletResponse response) {
-        String token=input.get("bootstrapToken");
-        if(bootstrapToken.isBlank() || token==null || !MessageDigest.isEqual(bootstrapToken.getBytes(StandardCharsets.UTF_8),token.getBytes(StandardCharsets.UTF_8)))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Admin bootstrap is not configured or the token is invalid.");
-        if(users.existsByRole(AccountRole.ADMIN)) throw new ResponseStatusException(HttpStatus.CONFLICT,"Admin setup has already been completed.");
-        validateCommon(input.get("email"),input.get("password"),input.get("fullName")); ensureEmailAvailable(input.get("email"));
-        UserAccount user=newAccount(input.get("email"),input.get("password"),input.get("fullName"),AccountRole.ADMIN,null);
-        users.save(user); authenticate(user,request,response); return SafeAccount.from(user);
-    }
-
     @PostMapping("/register/invited") @ResponseStatus(HttpStatus.CREATED) @Transactional
     SafeAccount registerInvited(@RequestBody InvitedRegistration input, HttpServletRequest request, HttpServletResponse response) {
         validateCommon(input.email(),input.password(),input.fullName()); ensureEmailAvailable(input.email());
         RegistrationInvite invite=invites.findByTokenHash(hash(input.inviteCode()==null?"":input.inviteCode()))
-            .filter(i->i.usedAt==null && i.expiresAt.isAfter(Instant.now()))
+            .filter(i->i.role==AccountRole.DOCTOR && i.usedAt==null && i.expiresAt.isAfter(Instant.now()))
             .orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Invite code is invalid, expired, or already used."));
         Long profileId=null;
         if(invite.role==AccountRole.DOCTOR) {
@@ -136,7 +124,7 @@ class AuthController {
 
     @PostMapping("/invites") @ResponseStatus(HttpStatus.CREATED) @Transactional
     InviteResponse createInvite(@RequestBody InviteRequest input) {
-        if(input.role()==null || input.role()==AccountRole.PATIENT) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose ADMIN or DOCTOR.");
+        if(input.role()!=AccountRole.DOCTOR) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Doctor.");
         byte[] bytes=new byte[32]; new SecureRandom().nextBytes(bytes);
         String code=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); Instant expiry=Instant.now().plus(7,ChronoUnit.DAYS);
         RegistrationInvite invite=new RegistrationInvite(); invite.role=input.role(); invite.expiresAt=expiry; invite.tokenHash=hash(code); invites.save(invite);

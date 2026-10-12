@@ -31,15 +31,6 @@ class ApiController {
     Map<String,Object> dashboard(Authentication auth) {
         LocalDateTime start = LocalDate.now().atStartOfDay();
         LocalDateTime end = start.plusDays(1);
-        if(auth.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_DOCTOR"))) {
-            UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-            List<Appointment> own=appointments.findAll().stream().filter(a->Objects.equals(a.doctorId,user.profileId)).toList();
-            return Map.of("patients",own.stream().map(a->a.patientId).distinct().count(),"doctors",1,
-                "appointmentsToday",own.stream().filter(a->!a.appointmentAt.isBefore(start)&&a.appointmentAt.isBefore(end)).count(),
-                "scheduledAppointments",own.stream().filter(a->"SCHEDULED".equals(a.status)).count(),
-                "completedAppointments",own.stream().filter(a->"COMPLETED".equals(a.status)).count(),
-                "cancelledAppointments",own.stream().filter(a->"CANCELLED".equals(a.status)).count());
-        }
         return Map.of(
             "patients", patients.count(),
             "doctors", doctors.count(),
@@ -51,20 +42,13 @@ class ApiController {
     }
 
     @GetMapping("/patients") List<Patient> allPatients(Authentication auth) {
-        if(auth.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_ADMIN"))) return patients.findAll();
-        UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-        Set<Long> ids=appointments.findAll().stream().filter(a->Objects.equals(a.doctorId,user.profileId)).map(a->a.patientId).collect(java.util.stream.Collectors.toSet());
-        return patients.findAllById(ids);
+        return patients.findAll();
     }
     @GetMapping("/patients/me") Patient myPatient(Authentication auth) {
         UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
         return patients.findById(user.profileId).orElseThrow(()->notFound("Patient"));
     }
     @GetMapping("/patients/{id}") Patient patient(@PathVariable Long id, Authentication auth) {
-        if(auth.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_DOCTOR"))) {
-            UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-            if(appointments.findAll().stream().noneMatch(a->Objects.equals(a.patientId,id)&&Objects.equals(a.doctorId,user.profileId))) throw notFound("Patient");
-        }
         return patients.findById(id).orElseThrow(() -> notFound("Patient"));
     }
     @PostMapping("/patients") @ResponseStatus(HttpStatus.CREATED)
@@ -96,21 +80,15 @@ class ApiController {
     }
 
     @GetMapping("/appointments") List<Appointment> allAppointments(Authentication auth) {
-        if(auth.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_ADMIN"))) return appointments.findAll();
-        UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-        return appointments.findAll().stream().filter(a->Objects.equals(a.doctorId,user.profileId)).toList();
+        return appointments.findAll();
     }
     @GetMapping("/appointments/mine") List<Appointment> myAppointments(Authentication auth) {
         UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-        if(user.role==AccountRole.DOCTOR) return appointments.findAll().stream().filter(a->Objects.equals(a.doctorId,user.profileId)).toList();
+        if(user.role==AccountRole.DOCTOR) return appointments.findAll();
         return appointments.findAll().stream().filter(a->Objects.equals(a.patientId,user.profileId)).toList();
     }
     @GetMapping("/appointments/{id}") Appointment appointment(@PathVariable Long id, Authentication auth) {
         Appointment item=appointments.findById(id).orElseThrow(()->notFound("Appointment"));
-        if(auth.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_DOCTOR"))) {
-            UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-            if(!Objects.equals(item.doctorId,user.profileId)) throw notFound("Appointment");
-        }
         return item;
     }
     @PostMapping("/appointments") @ResponseStatus(HttpStatus.CREATED)
@@ -127,12 +105,6 @@ class ApiController {
     }
     @PutMapping("/appointments/{id}") Appointment updateAppointment(@PathVariable Long id, @Valid @RequestBody Appointment a, Authentication auth) {
         if (!appointments.existsById(id)) throw notFound("Appointment");
-        if(auth.getAuthorities().stream().anyMatch(authority->authority.getAuthority().equals("ROLE_DOCTOR"))) {
-            UserAccount user=users.findByEmailIgnoreCase(auth.getName()).orElseThrow(()->notFound("Account"));
-            Appointment existing=appointments.findById(id).orElseThrow(()->notFound("Appointment"));
-            if(!Objects.equals(existing.doctorId,user.profileId)) throw notFound("Appointment");
-            a.patientId=existing.patientId; a.doctorId=existing.doctorId;
-        }
         if (!patients.existsById(a.patientId) || !doctors.existsById(a.doctorId))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Patient or doctor does not exist");
         if (!Set.of("SCHEDULED","COMPLETED","CANCELLED").contains(a.status))

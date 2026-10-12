@@ -118,14 +118,14 @@ function renderTable() {
     rows=state.patients.filter(p=>[p.fullName,p.phone,p.email,p.bloodGroup].join(' ').toLowerCase().includes(q)).map(p=>[
       `<div class="person-cell"><div class="person-avatar">${initials(p.fullName)}</div><div><strong>${escapeHtml(p.fullName)}</strong><small>Patient ID · ${p.id}</small></div></div>`,
       `${escapeHtml(p.age)} / ${escapeHtml(p.gender)}`,escapeHtml(p.phone),escapeHtml(p.bloodGroup||'—'),
-      state.user.role==='ADMIN'?`<button class="row-action" title="Edit patient" data-edit="patient" data-id="${p.id}">✎</button> <button class="row-action" title="Delete patient" data-delete="patient" data-id="${p.id}">×</button>`:'—'
+      state.user.role!=='PATIENT'?`<button class="row-action" title="Edit patient" data-edit="patient" data-id="${p.id}">✎</button> <button class="row-action" title="Delete patient" data-delete="patient" data-id="${p.id}">×</button>`:'—'
     ]);
   } else if(view==='doctors') {
     headers=['Doctor','Specialization','Phone','Availability','Actions'];
     rows=state.doctors.filter(d=>[d.fullName,d.specialization,d.phone,d.email].join(' ').toLowerCase().includes(q)).map(d=>[
       `<div class="person-cell"><div class="person-avatar">${initials(d.fullName)}</div><div><strong>${escapeHtml(d.fullName)}</strong><small>Doctor ID · ${d.id}</small></div></div>`,
       escapeHtml(d.specialization),escapeHtml(d.phone),`<span class="status-badge ${d.available?'badge-available':'badge-unavailable'}">${d.available?'Available':'Unavailable'}</span>`,
-      state.user.role==='ADMIN'?`<button class="row-action" title="Edit doctor" data-edit="doctor" data-id="${d.id}">✎</button> <button class="row-action" title="Delete doctor" data-delete="doctor" data-id="${d.id}">×</button>`:'—'
+      state.user.role!=='PATIENT'?`<button class="row-action" title="Edit doctor" data-edit="doctor" data-id="${d.id}">✎</button> <button class="row-action" title="Delete doctor" data-delete="doctor" data-id="${d.id}">×</button>`:'—'
     ]);
   } else {
     headers=['Patient / Doctor','Reason','Date & time','Status','Actions'];
@@ -137,7 +137,7 @@ function renderTable() {
       return [
         `<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,
         escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),
-        `${state.user.role!=='PATIENT'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button>`:''} ${state.user.role==='ADMIN'?`<button class="row-action" title="Delete appointment" data-delete="appointment" data-id="${a.id}">×</button>`:''}`
+        `${state.user.role!=='PATIENT'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button> <button class="row-action" title="Delete appointment" data-delete="appointment" data-id="${a.id}">×</button>`:''}`
       ];
     });
   }
@@ -145,7 +145,7 @@ function renderTable() {
     headers=['Patient / Doctor','Reason','Date & time','Status',''];
     rows=state.appointments.filter(a=>a.status==='SCHEDULED').sort((a,b)=>new Date(a.appointmentAt)-new Date(b.appointmentAt)).slice(0,6).map(a=>{
       const p=state.patients.find(x=>x.id===a.patientId),d=state.doctors.find(x=>x.id===a.doctorId);
-      return [`<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),state.user.role==='ADMIN'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button>`:''];
+      return [`<div class="person-cell"><div class="person-avatar">${initials(p?.fullName||'Patient')}</div><div><strong>${escapeHtml(p?.fullName||`Patient #${a.patientId}`)}</strong><small>${escapeHtml(d?.fullName||`Doctor #${a.doctorId}`)}</small></div></div>`,escapeHtml(a.reason),fmtDate(a.appointmentAt),statusBadge(a.status),state.user.role!=='PATIENT'?`<button class="row-action" title="Edit appointment" data-edit="appointment" data-id="${a.id}">✎</button> <button class="row-action" title="Delete appointment" data-delete="appointment" data-id="${a.id}">×</button>`:''];
     });
   }
   $('tableHead').innerHTML=`<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
@@ -154,7 +154,7 @@ function renderTable() {
   $('tableFooterText').textContent=`Showing ${rows.length} ${rows.length===1?'record':'records'}`;
 }
 function openModal(kind,id=null) {
-  if(state.user?.role==='DOCTOR'||(state.user?.role==='PATIENT'&&(kind!=='appointment'||id)))return;
+  if(state.user?.role==='PATIENT'&&(kind!=='appointment'||id))return;
   const type=kind==='patient'?'patient':kind==='doctor'?'doctor':'appointment';
   const current=id?state[{patient:'patients',doctor:'doctors',appointment:'appointments'}[type]].find(x=>x.id===Number(id)):null;
   state.editing={type,id:current?.id||null};
@@ -225,7 +225,6 @@ $('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Use syn
 const authModes={
   patient:{title:'Create a patient account',intro:'Register with your Gmail address to manage your appointments.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['age','Age','number'],['gender','Gender','select'],['phone','Phone number','tel']]},
   doctor:{title:'Create a doctor account',intro:'Register with your Gmail address and doctor details.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
-  admin:{title:'Create an admin account',intro:'Register with your Gmail address to manage the clinic demo.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password']]},
   login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['email','Gmail address','email'],['password','Password','password']]}
 };
 function renderAuth(mode='patient') {
@@ -233,23 +232,21 @@ function renderAuth(mode='patient') {
   document.querySelectorAll('.auth-tab').forEach(button=>button.classList.toggle('active',button.dataset.authMode===mode));
   $('authError').classList.add('hidden');
   $('authForm').innerHTML=config.fields.map(([name,label,type])=>{
-    let input=type==='select'?`<select id="auth-${name}" name="${name}" required>${(name==='gender'?['Male','Female','Other']:['PATIENT','DOCTOR','ADMIN']).map(value=>`<option value="${value}">${value[0]+value.slice(1).toLowerCase()}</option>`).join('')}</select>`:`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'minlength="10" maxlength="72" autocomplete="new-password"':''} ${type==='number'?'min="0" max="120"':''} ${type==='password'&&name==='bootstrapToken'?'autocomplete="off"':''} required>`;
+    let input=type==='select'?`<select id="auth-${name}" name="${name}" required>${['Male','Female','Other'].map(value=>`<option value="${value}">${value}</option>`).join('')}</select>`:`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'minlength="10" maxlength="72" autocomplete="new-password"':''} ${type==='number'?'min="0" max="120"':''} required>`;
     return `<div class="field"><label for="auth-${name}">${label}</label>${input}</div>`;
-  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':mode==='doctor'?'Create doctor account':'Create admin account'}</button>`;
+  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':'Create doctor account'}</button>`;
   $('authForm').dataset.mode=mode;
 }
 document.querySelectorAll('.auth-tab').forEach(button=>button.addEventListener('click',()=>renderAuth(button.dataset.authMode)));
 function showAccount(account) {
   state.user=account; $('authShell').classList.add('hidden'); document.querySelector('.app-shell').classList.remove('hidden');
-  const name=account.fullName||account.email, roleName=account.role[0]+account.role.slice(1).toLowerCase();
+  const name=account.fullName||account.email, roleName=account.role==='DOCTOR'?'Doctor · Clinic Admin':account.role==='ADMIN'?'Administrator':'Patient';
   $('userName').textContent=name; $('userRole').textContent=roleName; $('userAvatar').textContent=initials(name); $('userAvatar').classList.add('avatar'); $('userRole').parentElement.previousElementSibling.textContent=initials(name);
   document.querySelector('.top-avatar').textContent=initials(name); document.querySelector('.top-avatar').setAttribute('aria-label',roleName);
   document.querySelector('.app-shell').classList.remove('patient-mode','doctor-mode','admin-mode');
-  document.querySelector('.app-shell').classList.add(`${account.role.toLowerCase()}-mode`);
-  $('inviteBtn').classList.toggle('hidden',account.role!=='ADMIN');
-  $('primaryAction').classList.toggle('hidden',account.role==='DOCTOR');
+  document.querySelector('.app-shell').classList.add(account.role==='DOCTOR'?'admin-mode':`${account.role.toLowerCase()}-mode`);
   if(account.role==='PATIENT') { setView('appointments'); $('pageTitle').textContent='My appointments'; $('pageSubtitle').textContent='View your visits or request a new appointment.'; $('tableTitle').textContent='My appointments'; $('tableDescription').textContent='Your clinic bookings'; }
-  else if(account.role==='DOCTOR') { $('pageTitle').textContent='Doctor workspace'; $('pageSubtitle').textContent='Review patient records and manage appointment status.'; }
+  else if(account.role==='DOCTOR') { $('pageTitle').textContent='Clinic dashboard'; $('pageSubtitle').textContent='Manage patients, doctors, and appointments.'; }
   refreshData();
 }
 async function bootAuth() {
@@ -270,10 +267,5 @@ $('authForm').addEventListener('submit',async event=>{
   } catch(err) { error.textContent=err.message||'Unable to complete account access.'; error.classList.remove('hidden'); }
 });
 $('signOutBtn').addEventListener('click',async()=>{try{await request('/auth/logout',{method:'POST'});}finally{state.user=null;state.csrf=(await request('/auth/csrf')).token;document.querySelector('.app-shell').classList.add('hidden');renderAuth('login');$('authShell').classList.remove('hidden');}});
-$('inviteBtn').addEventListener('click',async()=>{
-  const role=window.prompt('Create an invite for ADMIN or DOCTOR. Enter the role:','DOCTOR'); if(!role)return;
-  try {const invite=await request('/auth/invites',{method:'POST',body:JSON.stringify({role:role.trim().toUpperCase()})});window.alert(`${invite.role} invite code (valid for 7 days):\n\n${invite.inviteCode}\n\nCopy and share it only with the intended person. It can be used once.`);}
-  catch(err){showToast(err.message||'Could not create invite.',true);}
-});
 const now=new Date(); $('todayLabel').textContent=now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}).toUpperCase();
 bootAuth(); setInterval(()=>{if(state.user)refreshData();},30000);
