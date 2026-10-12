@@ -224,8 +224,8 @@ $('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Use syn
 
 const authModes={
   patient:{title:'Create a patient account',intro:'Register with your Gmail address to manage your appointments.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['age','Age','number'],['gender','Gender','select'],['phone','Phone number','tel']]},
-  doctor:{title:'Doctor registration',intro:'Enter your one time invite code from the clinic administrator.',fields:[['inviteCode','Doctor invite code','text'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
-  admin:{title:'Set up the first admin account',intro:'The one time bootstrap token must be configured in Railway by the project owner.',fields:[['bootstrapToken','Admin bootstrap token','password'],['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password']]},
+  doctor:{title:'Create a doctor account',intro:'Register with your Gmail address and doctor details.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
+  admin:{title:'Create an admin account',intro:'Register with your Gmail address to manage the clinic demo.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password']]},
   login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['email','Gmail address','email'],['password','Password','password']]}
 };
 function renderAuth(mode='patient') {
@@ -265,8 +265,7 @@ $('authForm').addEventListener('submit',async event=>{
     let account;
     if(mode==='login') account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
     else if(mode==='patient') account=await request('/auth/register/patient',{method:'POST',body:JSON.stringify({...data,age:Number(data.age)})});
-    else if(mode==='admin') account=await request('/auth/register/bootstrap',{method:'POST',body:JSON.stringify(data)});
-    else account=await request('/auth/register/invited',{method:'POST',body:JSON.stringify(data)});
+    else account=await request('/auth/register/open',{method:'POST',body:JSON.stringify({...data,role:mode.toUpperCase()})});
     showAccount(account);
   } catch(err) { error.textContent=err.message||'Unable to complete account access.'; error.classList.remove('hidden'); }
 });

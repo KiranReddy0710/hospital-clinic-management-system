@@ -67,6 +67,32 @@ class AuthController {
         users.save(user); authenticate(user,request,response); return SafeAccount.from(user);
     }
 
+    @PostMapping("/register/open") @ResponseStatus(HttpStatus.CREATED) @Transactional
+    SafeAccount registerOpen(@RequestBody Map<String,String> input, HttpServletRequest request, HttpServletResponse response) {
+        AccountRole role;
+        try { role=AccountRole.valueOf(input.getOrDefault("role", "PATIENT").trim().toUpperCase()); }
+        catch (IllegalArgumentException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Patient, Doctor, or Admin."); }
+        validateCommon(input.get("email"),input.get("password"),input.get("fullName")); ensureEmailAvailable(input.get("email"));
+        Long profileId=null;
+        if(role==AccountRole.PATIENT) {
+            int age;
+            try { age=Integer.parseInt(input.getOrDefault("age", "-1")); } catch (NumberFormatException ex) { age=-1; }
+            if(age<0 || age>120 || blank(input.get("gender")) || blank(input.get("phone")))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Complete the required patient details.");
+            Patient patient=new Patient(); patient.fullName=input.get("fullName").trim(); patient.age=age;
+            patient.gender=input.get("gender").trim(); patient.phone=input.get("phone").trim(); patient.email=normalize(input.get("email"));
+            patient=patients.save(patient); profileId=patient.id;
+        } else if(role==AccountRole.DOCTOR) {
+            if(blank(input.get("phone")) || blank(input.get("specialization")))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Phone and specialization are required.");
+            Doctor doctor=new Doctor(); doctor.fullName=input.get("fullName").trim(); doctor.email=normalize(input.get("email"));
+            doctor.phone=input.get("phone").trim(); doctor.specialization=input.get("specialization").trim();
+            doctor=doctors.save(doctor); profileId=doctor.id;
+        }
+        UserAccount user=newAccount(input.get("email"),input.get("password"),input.get("fullName"),role,profileId);
+        users.save(user); authenticate(user,request,response); return SafeAccount.from(user);
+    }
+
     @PostMapping("/register/bootstrap") @ResponseStatus(HttpStatus.CREATED) @Transactional
     SafeAccount registerFirstAdmin(@RequestBody Map<String,String> input, HttpServletRequest request, HttpServletResponse response) {
         String token=input.get("bootstrapToken");

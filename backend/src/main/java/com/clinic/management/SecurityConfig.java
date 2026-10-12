@@ -40,11 +40,11 @@ class SecurityConfig {
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 // Anonymous sign-in and registration routes validate credentials, Gmail details,
                 // or an invite. Exempt them so Safari cookie policies cannot block account access.
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/register/patient",
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/register/patient", "/api/auth/register/open",
                     "/api/auth/register/invited", "/api/auth/register/bootstrap"))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout",
-                    "/api/auth/register/patient", "/api/auth/register/invited", "/api/auth/register/bootstrap").permitAll()
+                    "/api/auth/register/patient", "/api/auth/register/open", "/api/auth/register/invited", "/api/auth/register/bootstrap").permitAll()
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/doctors", "/api/doctors/*").hasAnyRole("ADMIN", "DOCTOR", "PATIENT")
                 .requestMatchers("/api/doctors/**").hasRole("ADMIN")
