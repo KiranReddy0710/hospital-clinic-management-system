@@ -38,9 +38,10 @@ class SecurityConfig {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // First-admin setup is protected by a high-entropy one-time secret. Exempt this
-                // bootstrap endpoint so browser cookie policies cannot block initial setup.
-                .ignoringRequestMatchers("/api/auth/register/bootstrap"))
+                // Anonymous sign-in and registration routes validate credentials, Gmail details,
+                // or an invite. Exempt them so Safari cookie policies cannot block account access.
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register/patient",
+                    "/api/auth/register/invited", "/api/auth/register/bootstrap"))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout",
                     "/api/auth/register/patient", "/api/auth/register/invited", "/api/auth/register/bootstrap").permitAll()
