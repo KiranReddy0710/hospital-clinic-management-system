@@ -224,7 +224,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 $('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Use synthetic data only. Your role controls which clinic records you can access.');});
 
 const authModes={
-  login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['email','Gmail address','email'],['password','Password','password']]}
+  login:{title:'Sign in to MediCare',intro:'Use your clinic account or try one of the shared demo accounts below.',fields:[['email','Gmail address','email'],['password','Password','password']]}
 };
 function renderAuth() {
   const mode='login';
