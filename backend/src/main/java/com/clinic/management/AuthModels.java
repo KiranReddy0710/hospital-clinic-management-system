@@ -18,27 +18,10 @@ class UserAccount {
     public UserAccount() {}
 }
 
-@Entity
-@Table(name = "registration_invites", uniqueConstraints = @UniqueConstraint(columnNames = "token_hash"))
-class RegistrationInvite {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) public Long id;
-    @Column(name = "token_hash", nullable = false, unique = true, length = 64) public String tokenHash;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) public AccountRole role;
-    @Column(nullable = false) public Instant expiresAt;
-    @Column(name = "used_at") public Instant usedAt;
-    public RegistrationInvite() {}
-}
-
 record SafeAccount(Long id, String email, String fullName, AccountRole role, Long profileId) {
     static SafeAccount from(UserAccount account) {
         return new SafeAccount(account.id, account.email, account.fullName, account.role, account.profileId);
     }
 }
 
-record PatientRegistration(String email, String password, String fullName, Integer age,
-                           String gender, String phone, String bloodGroup, String address) {}
-record InvitedRegistration(String inviteCode, String email, String password, String fullName,
-                           String phone, String specialization) {}
 record LoginRequest(String email, String password) {}
-record InviteRequest(AccountRole role) {}
-record InviteResponse(String inviteCode, AccountRole role, Instant expiresAt) {}

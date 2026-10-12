@@ -38,13 +38,11 @@ class SecurityConfig {
         http.cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // Anonymous sign-in and registration routes validate credentials, Gmail details,
-                // or an invite. Exempt them so Safari cookie policies cannot block account access.
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/register/patient", "/api/auth/register/open",
-                    "/api/auth/register/invited"))
+                // Sign-in and sign-out do not depend on a CSRF cookie being accepted by the browser.
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/logout"))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout",
-                    "/api/auth/register/patient", "/api/auth/register/open", "/api/auth/register/invited").permitAll()
+                .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/logout").permitAll()
+                .requestMatchers("/api/auth/register/**", "/api/auth/invites/**").denyAll()
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/doctors", "/api/doctors/*").hasAnyRole("ADMIN", "DOCTOR", "PATIENT")
                 .requestMatchers("/api/doctors/**").hasAnyRole("ADMIN", "DOCTOR")
@@ -55,7 +53,6 @@ class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/appointments").hasAnyRole("ADMIN", "DOCTOR", "PATIENT")
                 .requestMatchers(HttpMethod.PUT, "/api/appointments/**").hasAnyRole("ADMIN", "DOCTOR")
                 .requestMatchers(HttpMethod.DELETE, "/api/appointments/**").hasAnyRole("ADMIN", "DOCTOR")
-                .requestMatchers("/api/auth/invites/**").hasAnyRole("ADMIN", "DOCTOR")
                 .requestMatchers("/api/**").hasAnyRole("ADMIN", "DOCTOR")
                 .anyRequest().permitAll())
             .formLogin(form -> form.disable())

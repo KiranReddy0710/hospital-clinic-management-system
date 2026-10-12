@@ -16,8 +16,4 @@ interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
     java.util.Optional<UserAccount> findByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCase(String email);
-    boolean existsByRole(AccountRole role);
-}
-interface RegistrationInviteRepository extends JpaRepository<RegistrationInvite, Long> {
-    java.util.Optional<RegistrationInvite> findByTokenHash(String tokenHash);
 }

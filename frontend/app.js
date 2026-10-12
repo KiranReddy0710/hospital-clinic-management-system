@@ -223,21 +223,17 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 $('helpLink').addEventListener('click',e=>{e.preventDefault();showToast('Use synthetic data only. Your role controls which clinic records you can access.');});
 
 const authModes={
-  patient:{title:'Create a patient account',intro:'Register with your Gmail address to manage your appointments.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['age','Age','number'],['gender','Gender','select'],['phone','Phone number','tel']]},
-  doctor:{title:'Create a doctor account',intro:'Register with your Gmail address and doctor details.',fields:[['fullName','Full name','text'],['email','Gmail address','email'],['password','Password (10+ characters, letters and numbers)','password'],['phone','Phone number','tel'],['specialization','Specialization','text']]},
   login:{title:'Sign in to MediCare',intro:'Use the Gmail address and password for your clinic account.',fields:[['email','Gmail address','email'],['password','Password','password']]}
 };
-function renderAuth(mode='patient') {
+function renderAuth() {
+  const mode='login';
   const config=authModes[mode]; $('authTitle').textContent=config.title; $('authIntro').textContent=config.intro;
-  document.querySelectorAll('.auth-tab').forEach(button=>button.classList.toggle('active',button.dataset.authMode===mode));
   $('authError').classList.add('hidden');
   $('authForm').innerHTML=config.fields.map(([name,label,type])=>{
-    let input=type==='select'?`<select id="auth-${name}" name="${name}" required>${['Male','Female','Other'].map(value=>`<option value="${value}">${value}</option>`).join('')}</select>`:`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'minlength="10" maxlength="72" autocomplete="new-password"':''} ${type==='number'?'min="0" max="120"':''} required>`;
+    let input=`<input id="auth-${name}" name="${name}" type="${type}" ${type==='email'?'autocomplete="email" pattern=".+@gmail\\.com"':''} ${name==='password'?'maxlength="72" autocomplete="current-password"':''} required>`;
     return `<div class="field"><label for="auth-${name}">${label}</label>${input}</div>`;
-  }).join('')+`<button class="primary-btn auth-submit" type="submit">${mode==='login'?'Sign in':mode==='patient'?'Create patient account':'Create doctor account'}</button>`;
-  $('authForm').dataset.mode=mode;
+  }).join('')+`<button class="primary-btn auth-submit" type="submit">Sign in</button>`;
 }
-document.querySelectorAll('.auth-tab').forEach(button=>button.addEventListener('click',()=>renderAuth(button.dataset.authMode)));
 function showAccount(account) {
   state.user=account; $('authShell').classList.add('hidden'); document.querySelector('.app-shell').classList.remove('hidden');
   const name=account.fullName||account.email, roleName=account.role==='DOCTOR'?'Doctor · Clinic Admin':account.role==='ADMIN'?'Administrator':'Patient';
@@ -250,22 +246,19 @@ function showAccount(account) {
   refreshData();
 }
 async function bootAuth() {
-  document.querySelector('.app-shell').classList.add('hidden'); $('authShell').classList.remove('hidden'); renderAuth('patient');
+  document.querySelector('.app-shell').classList.add('hidden'); $('authShell').classList.remove('hidden'); renderAuth();
   try { state.csrf=(await request('/auth/csrf')).token; const account=await request('/auth/me'); showAccount(account); }
-  catch { /* No session: keep the registration and sign in page visible. */ }
+  catch { /* No session: keep the sign-in page visible. */ }
 }
 $('authForm').addEventListener('submit',async event=>{
-  event.preventDefault(); const mode=event.currentTarget.dataset.mode, data=Object.fromEntries(new FormData(event.currentTarget));
+  event.preventDefault(); const data=Object.fromEntries(new FormData(event.currentTarget));
   const error=$('authError'); error.classList.add('hidden');
   try {
     state.csrf=(await request('/auth/csrf')).token;
-    let account;
-    if(mode==='login') account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
-    else if(mode==='patient') account=await request('/auth/register/patient',{method:'POST',body:JSON.stringify({...data,age:Number(data.age)})});
-    else account=await request('/auth/register/open',{method:'POST',body:JSON.stringify({...data,role:mode.toUpperCase()})});
+    const account=await request('/auth/login',{method:'POST',body:JSON.stringify({email:data.email,password:data.password})});
     showAccount(account);
   } catch(err) { error.textContent=err.message||'Unable to complete account access.'; error.classList.remove('hidden'); }
 });
-$('signOutBtn').addEventListener('click',async()=>{try{await request('/auth/logout',{method:'POST'});}finally{state.user=null;state.csrf=(await request('/auth/csrf')).token;document.querySelector('.app-shell').classList.add('hidden');renderAuth('login');$('authShell').classList.remove('hidden');}});
+$('signOutBtn').addEventListener('click',async()=>{try{await request('/auth/logout',{method:'POST'});}finally{state.user=null;state.csrf=(await request('/auth/csrf')).token;document.querySelector('.app-shell').classList.add('hidden');renderAuth();$('authShell').classList.remove('hidden');}});
 const now=new Date(); $('todayLabel').textContent=now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}).toUpperCase();
 bootAuth(); setInterval(()=>{if(state.user)refreshData();},30000);
